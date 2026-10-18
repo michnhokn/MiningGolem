@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "mininggolem",
+	"version": "${version}",
+	"name": "Mining Golem",
+	"description": "A copper-golem-like creature which builds a strip-mine network for the player.",
+	"authors": [
+		"michnhokn"
+	],
+	"contact": {
+		"sources": "https://github.com/michnhokn/MiningGolem"
+	},
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.michnhokn.mininggolem.MiningGolem"
+		],
+		"client": [
+			"com.michnhokn.mininggolem.client.MiningGolemClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

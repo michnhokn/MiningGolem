@@ -1,0 +1,6 @@
+{
+	"model": {
+		"type": "minecraft:model",
+		"model": "mininggolem:item/mining_golem_spawn_egg"
+	}
+}
