@@ -1,31 +1,26 @@
 # Publishes a release to Modrinth and syncs the project description.
 #
-#   * Pushing a tag `vX.Y.Z` builds the mod and uploads it as a new Modrinth
-#     version (https://docs.modrinth.com/api/operations/createversion/).
-#   * Every run also uploads `README.md` as the project's long description
+#   * Publishing a GitHub release builds the release's tag and uploads it as a
+#     new Modrinth version (https://docs.modrinth.com/api/operations/createversion/);
+#     the release notes become the Modrinth changelog.
+#   * Running the workflow manually from the Actions tab only syncs `README.md`
+#     as the project's long description
 #     (https://docs.modrinth.com/api/operations/modifyproject/).
 #
 # One-time setup:
-#   1. Create/claim the project on Modrinth and set `MODRINTH_PROJECT` below
-#      to its ID or slug (https://modrinth.com/mod/<slug>).
-#   2. Create a token at https://modrinth.com/settings/pats with the
-#      `VERSION_CREATE` and `PROJECT_WRITE` scopes and add it as the repository
-#      secret `MODRINTH_TOKEN` (Settings → Secrets and variables → Actions).
+#   Create a token at https://modrinth.com/settings/pats with the
+#   `VERSION_CREATE` and `PROJECT_WRITE` scopes and add it as the repository
+#   secret `MODRINTH_TOKEN` (Settings → Secrets and variables → Actions).
 #
-# The tag must match the version in `gradle.properties`; Modrinth also rejects
-# duplicate version numbers, so a release can never be uploaded twice.
+# The release tag must match the version in `gradle.properties`; Modrinth also
+# rejects duplicate version numbers, so a release can never be uploaded twice.
 
 name: Modrinth release
 
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
-    inputs:
-      sync_description_only:
-        description: 'Only sync README.md to the Modrinth description (no version upload)'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -35,8 +30,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # TODO: Modrinth project ID or slug (https://modrinth.com/mod/<slug>).
-  MODRINTH_PROJECT: ''
+  # Modrinth project slug (https://modrinth.com/mod/mining-golem).
+  MODRINTH_PROJECT: 'mining-golem'
   # Game versions this build supports (JSON array) — keep in sync with gradle.properties.
   MODRINTH_GAME_VERSIONS: '["26.3"]'
   # Mod loaders this build supports (JSON array).
@@ -56,19 +51,8 @@ jobs:
     env:
       MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
     steps:
-      - name: Decide mode
-        id: mode
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.sync_description_only }}" = "true" ]; then
-            echo "upload=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "upload=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history and tags, needed for the changelog and tag check
 
       - name: Read version from gradle.properties
         id: version
@@ -82,13 +66,15 @@ jobs:
           echo "Releasing version $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Check tag matches gradle.properties version
-        if: github.ref_type == 'tag'
+      - name: Check release tag matches gradle.properties version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${RELEASE_TAG#v}"
           if [ "$TAG_VERSION" != "${{ steps.version.outputs.version }}" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match version ${{ steps.version.outputs.version }} in gradle.properties. Fix the tag or the version and try again."
+            echo "::error::Release tag $RELEASE_TAG does not match version ${{ steps.version.outputs.version }} in gradle.properties. Fix the tag or the version and try again."
             exit 1
           fi
 
@@ -118,22 +104,22 @@ jobs:
           echo "PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
 
       - name: Set up JDK 25
-        if: steps.mode.outputs.upload == 'true'
+        if: github.event_name == 'release'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 25
 
       - name: Set up Gradle
-        if: steps.mode.outputs.upload == 'true'
+        if: github.event_name == 'release'
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        if: steps.mode.outputs.upload == 'true'
+        if: github.event_name == 'release'
         run: ./gradlew build
 
       - name: Locate mod jar
-        if: steps.mode.outputs.upload == 'true'
+        if: github.event_name == 'release'
         id: jar
         run: |
           set -euo pipefail
@@ -144,19 +130,20 @@ jobs:
           fi
           echo "jar=$JAR" >> "$GITHUB_OUTPUT"
 
-      - name: Build changelog from commits since the previous tag
-        if: steps.mode.outputs.upload == 'true'
+      - name: Read the GitHub release notes as changelog
+        if: github.event_name == 'release'
+        env:
+          RELEASE_NOTES: ${{ github.event.release.body }}
         run: |
           set -euo pipefail
-          PREV_TAG="$(git describe --tags --abbrev=0 'HEAD^' 2>/dev/null || true)"
-          if [ -n "$PREV_TAG" ]; then
-            git log --pretty=format:'- %s' "$PREV_TAG..HEAD" > changelog.md
-          else
-            git log --pretty=format:'- %s' HEAD > changelog.md
+          if [ -z "$RELEASE_NOTES" ]; then
+            echo "::error::The GitHub release has no notes. Add a description (or use 'Generate release notes') and re-run."
+            exit 1
           fi
+          printf '%s' "$RELEASE_NOTES" > changelog.md
 
       - name: Create Modrinth version
-        if: steps.mode.outputs.upload == 'true'
+        if: github.event_name == 'release'
         run: |
           set -euo pipefail
           jq -n \
