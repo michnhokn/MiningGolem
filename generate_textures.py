@@ -154,8 +154,6 @@ HIGHLIGHT = (255, 255, 255, 255)
 SHADOW = (85, 85, 85, 255)
 SLOT_BG = (139, 139, 139, 255)
 SLOT_DARK = (55, 55, 55, 255)
-COPPER_LIGHT = (222, 163, 111, 255)
-COPPER_DARK = (137, 84, 51, 255)
 PANEL_HEIGHT = 234
 
 
@@ -189,12 +187,6 @@ def gen_gui_texture():
                 px[y][x] = SHADOW
             else:
                 px[y][x] = PANEL
-
-    # copper accent trims separating header / controls / slots
-    rect(3, 16, 253, 17, COPPER_LIGHT)
-    rect(3, 17, 253, 18, COPPER_DARK)
-    rect(3, 63, 253, 64, COPPER_LIGHT)
-    rect(3, 64, 253, 65, COPPER_DARK)
 
     def slot(x, y):
         # 18x18 cell whose top-left is (slotX-1, slotY-1)
