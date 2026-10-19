@@ -30,8 +30,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Modrinth project slug (https://modrinth.com/mod/mining-golem).
-  MODRINTH_PROJECT: 'mining-golem'
+  # Modrinth project ID — the project is under review, so it is not publicly
+  # listed yet and must be addressed by ID instead of its slug.
+  MODRINTH_PROJECT: 'SRY04g6P'
   # Game versions this build supports (JSON array) — keep in sync with gradle.properties.
   MODRINTH_GAME_VERSIONS: '["26.3"]'
   # Mod loaders this build supports (JSON array).
@@ -98,7 +99,9 @@ jobs:
             -H "User-Agent: $USER_AGENT" \
             "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT" | jq -er '.id // empty' || true)"
           if [ -z "$PROJECT_ID" ]; then
-            echo "::error::Could not resolve Modrinth project '$MODRINTH_PROJECT'. Check MODRINTH_PROJECT and MODRINTH_TOKEN."
+            WHOAMI="$(curl -sS -H "Authorization: $MODRINTH_TOKEN" -H "User-Agent: $USER_AGENT" \
+              "https://api.modrinth.com/v2/user" | jq -r '.username // "unknown"' 2>/dev/null || echo unknown)"
+            echo "::error::Could not resolve Modrinth project '$MODRINTH_PROJECT' (token belongs to '$WHOAMI'). Check MODRINTH_PROJECT and MODRINTH_TOKEN."
             exit 1
           fi
           echo "PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
