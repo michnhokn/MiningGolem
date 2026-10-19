@@ -4,14 +4,6 @@ A Fabric mod for Minecraft 26.3 that adds a diamond-textured copper-golem-like h
 which digs a serpentine strip-mine network for you — gathering loot, lighting tunnels
 with torches and bridging over holes, even while you are away.
 
-|              |                                   |
-|--------------|-----------------------------------|
-| Minecraft    | 26.3                              |
-| Fabric Loader| ≥ 0.19.5                          |
-| Fabric API   | any for 26.3                      |
-| Java         | ≥ 25                              |
-| Side         | client + dedicated server         |
-
 **Download:** [Modrinth](https://modrinth.com/mod/mininggolem) — requires [Fabric API](https://modrinth.com/mod/fabric-api).
 
 ---
@@ -58,49 +50,34 @@ The GUI live-updates while the golem works — you can watch loot and tool durab
 
 ## How it mines
 
-![Top-down view of the ring pattern: tunnel pairs forming closed loops, chained together. Legend in image: orange = golem start, yellow = torch, white = dig direction, light gray = tunnel](https://raw.githubusercontent.com/michnhokn/MiningGolem/main/docs/mining_pattern.png)
+The golem digs an **endless chain of closed rings**: a 100-block tunnel row in the
+chosen direction, a short connector, a return row back, and a 2-block rung that
+closes the loop. Every pair of rows is connected at both ends, and rings are chained
+on alternating sides, so the whole network stays one connected maze of loops. There
+is no fixed length: the plan is extended ring by ring, and the golem keeps going
+until a stop condition hits (inventory full, no tools, unbreakable block, or you
+press Stop). **Stop + Start continues the same network** — old and new tunnels stay
+connected. Only changing the dig direction in the GUI, or picking the golem up and
+placing it somewhere else, starts a fresh pattern.
 
-*Top-down view. The real pattern uses 100-block rows and continues endlessly through new rings. Each row pair forms a closed loop — connected on the right side (turn connector) and on the left side (turn + short closing rung).*
+The bore is strictly horizontal, 1 wide × 2 tall, at the Y level where the job
+started, and the golem mines only in front of itself — no wandering off, no digging
+into walls at random.
 
-- **Pattern:** an **endless chain of closed rings** — a tunnel row (100 blocks) in the
-  work direction, a 3-block connector, a return row back, and a 2-block rung that closes
-  the loop: **every pair of rows is connected at both ends**. Rings are chained on
-  alternating sides, so the whole network is one connected maze of loops. There is no
-  fixed length: the plan is extended ring by ring, and the golem keeps going until a
-  stop condition hits (inventory full, no tools, unbreakable block, or you press Stop).
-  **Stop + Start continues the same network** — old and new tunnels stay connected.
-  Only two things start a fresh pattern: changing the dig direction in the GUI, or
-  picking the golem up and placing it somewhere else.
-- **Bore:** strictly horizontal, 1 wide × 2 tall, at the Y level where the job started.
-
-```
-   side view of the tunnel                     next column
-   (already dug)                               to dig
-  +--------------------------+-------+------+
-  |                [T]       |  ###  | ###  |   [T] torch on the ground,
-  |                          |  ###  | ###  |   every 10 columns
-  |      (the golem)->       |  ###  | ###  |   ### = rock to break
-  |          ## <- 1x2 bore  |  ###  | ###  |   ##  = head+foot level
-  +--------------------------+       +------+
-  | ====== bridged floor =======     | ###  |   === = filler blocks close
-  +--------------------------------+------+   holes (caves, fallen gravel)
-```
-- It mines **only in front of itself** — no wandering off, no digging into walls at random.
-- **Ores:**
-  - an ore *in the bore* is vein-mined: the whole connected cluster goes into the
-    inventory (up to 48 blocks per vein),
-  - after a column is mined, all *now-visible faces* of the broken blocks are checked;
-    ores the golem can actually harvest with a tool in its inventory are mined (with
-    vein mining) before the tunnel continues.
-- **Tools:** the matching tool is chosen per block — pickaxe for stone-type, shovel for
-  dirt/gravel. It uses the *fastest tool that can really harvest* the block (a wooden
-  pickaxe won't touch diamond ore). Break time scales with block hardness and tool tier,
-  like a player's. Each broken block wears the tool; when one breaks, it automatically
-  switches to the next tool slot.
-- **Torches:** one every **10 columns**, placed on the ground behind it (wall-mounted as
-  fallback, retried next column if the spot is blocked).
-- **Loot:** mined blocks go straight into the inventory. Only when the inventory is full
-  does excess drop on the ground — and the job stops with the status *Inventory full*.
+- **Ores:** an ore in the bore is vein-mined: the whole connected cluster goes into
+  the inventory (up to 48 blocks per vein). After each column, the newly exposed
+  faces are checked, and ores the golem can actually harvest with a tool in its
+  inventory are mined (with vein mining) before the tunnel continues.
+- **Tools:** the matching tool is chosen per block — pickaxe for stone-type, shovel
+  for dirt/gravel — always the fastest tool that can really harvest the block (a
+  wooden pickaxe won't touch diamond ore). Break time scales with block hardness and
+  tool tier, like a player's. Each broken block wears the tool; when one breaks, the
+  golem switches to the next tool slot automatically.
+- **Torches:** one every **10 columns**, placed on the ground behind it (wall-mounted
+  as fallback, retried next column if the spot is blocked).
+- **Loot:** mined blocks go straight into the inventory. Only when the inventory is
+  full does excess drop on the ground — and the job stops with the status
+  *Inventory full*.
 
 ## Safety & resilience
 
@@ -142,39 +119,3 @@ Requires op-level permissions. When on:
   - 🔴 red — the block currently being broken
   - 🔵 blue — the torch spot candidate behind the dig position
   - 🟢 green — the bridging spot below the next column
-
-## Building from source
-
-```
-./gradlew build
-```
-
-Output: `build/libs/mininggolem-<version>.jar` (+ sources jar).
-
-Textures (entity, eyes, GUI, spawn egg) are generated by the
-Python scripts in the repo root: `generate_textures.py`, `generate_golem_texture.py`,
-`generate_spawn_egg.py`. The GUI's ghost slot hints are greyed-out vanilla item
-textures (diamond pickaxe/shovel, torch), extracted from the Minecraft client jar
-into `assets-src/vanilla/` and baked in by `generate_textures.py gui`.
-
-### Project layout
-
-```
-src/main/java/com/michnhokn/mininggolem/
-  MiningGolem.java                  entrypoint: entity/menu/ticket registration, /mininggolem command
-  entity/MiningGolemEntity.java     inventory, status sync, pick-up, bridging, vein mining, NBT
-  entity/goal/StripMineGoal.java    the serpentine strip-mine AI
-  inventory/MiningGolemMenu.java    GUI slots + synced status/direction
-  network/…                         C2S payloads: toggle, rename, set-direction
-  item/ModItems.java                spawn egg
-  spawn/SpawnRitualHandler.java     diamond block ritual + golem placement
-src/client/java/com/michnhokn/mininggolem/client/
-  render/…                          copper-golem-geometry model, renderer, held tool
-  screen/MiningGolemScreen.java     GUI screen
-```
-
-## v2 ideas
-
-- Digging down / staircase to a target Y level
-- Config file (all constants are code-level constants for now)
-- Pickaxe visibly swinging *with* the chop animation polish, more mining patterns
