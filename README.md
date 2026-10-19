@@ -4,7 +4,7 @@ A Fabric mod for Minecraft 26.3 that adds a diamond-textured copper-golem-like h
 which digs a serpentine strip-mine network for you — gathering loot, lighting tunnels
 with torches and bridging over holes, even while you are away.
 
-**Download:** [Modrinth](https://modrinth.com/mod/mininggolem) — requires [Fabric API](https://modrinth.com/mod/fabric-api).
+**Download:** [Modrinth](https://modrinth.com/mod/mining-golem) — requires [Fabric API](https://modrinth.com/mod/fabric-api).
 
 ---
 

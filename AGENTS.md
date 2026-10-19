@@ -31,6 +31,9 @@ strip-mine: collects loot, places torches, bridges holes. Entry point:
   - **PATCH** — bug fixes
   Bump the version in the release commit (`chore: release x.y.z`). Tags (`v x.y.z`)
   go on `main` only when a version is actually released — never on feature branches.
+  A release is published by creating the GitHub Release on that tag; the
+  `Modrinth release` action ships it, using the release's generated notes as the
+  Modrinth changelog.
 
 ## Before opening a PR
 
