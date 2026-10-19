@@ -15,7 +15,8 @@ strip-mine: collects loot, places torches, bridges holes. Entry point:
   - **MAJOR** — new Minecraft version support / breaking behavior changes
   - **MINOR** — new features
   - **PATCH** — bug fixes
-  Bump the version in the release commit (`chore: release x.y.z`), tag `v x.y.z`.
+  Bump the version in the release commit (`chore: release x.y.z`). Tags (`v x.y.z`)
+  go on `main` only when a version is actually released — never on feature branches.
 
 ## Before opening a PR
 
