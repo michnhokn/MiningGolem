@@ -63,13 +63,17 @@ HIGHLIGHT = (255, 255, 255, 255)
 SHADOW = (85, 85, 85, 255)
 SLOT_BG = (139, 139, 139, 255)
 SLOT_DARK = (55, 55, 55, 255)
+COPPER_LIGHT = (222, 163, 111, 255)
+COPPER_DARK = (137, 84, 51, 255)
+PANEL_HEIGHT = 246
 
 
 def gen_gui_texture():
-    # 256x256 canvas; panel occupies 256x228.
+    # 256x256 canvas; panel occupies 256x246.
     random.seed(7)
     w, h = 256, 256
     px = [[(0, 0, 0, 0) for _ in range(w)] for _ in range(h)]
+    H = PANEL_HEIGHT
 
     def rect(x0, y0, x1, y1, color):
         for y in range(y0, y1):
@@ -78,17 +82,23 @@ def gen_gui_texture():
                     px[y][x] = color
 
     # panel with vanilla-style border
-    rect(0, 0, 256, 228, PANEL)
+    rect(0, 0, 256, H, PANEL)
     rect(0, 0, 256, 1, HIGHLIGHT)
-    rect(0, 0, 1, 228, HIGHLIGHT)
-    rect(0, 227, 256, 228, SHADOW)
-    rect(255, 0, 256, 228, SHADOW)
-    rect(0, 0, 256, 228, BORDER)
-    rect(1, 1, 255, 227, PANEL)
+    rect(0, 0, 1, H, HIGHLIGHT)
+    rect(0, H - 1, 256, H, SHADOW)
+    rect(255, 0, 256, H, SHADOW)
+    rect(0, 0, 256, H, BORDER)
+    rect(1, 1, 255, H - 1, PANEL)
     rect(1, 1, 255, 2, HIGHLIGHT)
-    rect(1, 1, 2, 227, HIGHLIGHT)
-    rect(1, 226, 255, 227, SHADOW)
-    rect(254, 1, 255, 227, SHADOW)
+    rect(1, 1, 2, H - 1, HIGHLIGHT)
+    rect(1, H - 2, 255, H - 1, SHADOW)
+    rect(254, 1, 255, H - 1, SHADOW)
+
+    # copper accent trims separating header / controls / inventory
+    rect(2, 16, 254, 17, COPPER_LIGHT)
+    rect(2, 17, 254, 18, COPPER_DARK)
+    rect(2, 150, 254, 151, COPPER_LIGHT)
+    rect(2, 151, 254, 152, COPPER_DARK)
 
     def slot(x, y):
         # 18x18 cell whose top-left is (slotX-1, slotY-1)
@@ -102,8 +112,8 @@ def gen_gui_texture():
     tool_slots = [(8, 20 + row * 18) for row in range(4)]
     torch_slots = [(230, 20 + row * 18) for row in range(4)]
     loot_slots = [(44 + col * 18, 20 + row * 18) for row in range(4) for col in range(9)]
-    inv_slots = [(9 + col * 18, 146 + row * 18) for row in range(3) for col in range(9)]
-    hotbar_slots = [(9 + col * 18, 204) for col in range(9)]
+    inv_slots = [(9 + col * 18, 166 + row * 18) for row in range(3) for col in range(9)]
+    hotbar_slots = [(9 + col * 18, 224) for col in range(9)]
 
     for x, y in tool_slots + torch_slots + loot_slots + inv_slots + hotbar_slots:
         slot(x - 1, y - 1)

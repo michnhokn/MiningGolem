@@ -128,20 +128,32 @@ public class MiningGolemMenu extends AbstractContainerMenu {
 	// --- Layout constants shared with the screen ---
 
 	public static final class MenuLayout {
+		public int titleX() { return 8; }
+		public int titleY() { return 6; }
+		public int statusRight() { return 248; }
+		public int statusY() { return 6; }
 		public int toolX() { return 8; }
 		public int toolY(int row) { return 20 + row * 18; }
 		public int torchX() { return 230; }
 		public int torchY(int row) { return 20 + row * 18; }
 		public int lootX(int col) { return 44 + col * 18; }
 		public int lootY(int row) { return 20 + row * 18; }
+		public int nameX() { return 8; }
+		public int nameY() { return 106; }
+		public int nameWidth() { return 120; }
+		public int dirX() { return 134; }
+		public int dirLabelY() { return 96; }
+		public int dirY() { return 106; }
+		public int dirButtonWidth() { return 28; }
+		public int dirButtonHeight() { return 16; }
+		public int dirStep() { return 29; }
 		public int invX() { return 9; }
-		public int invY() { return 146; }
-		public int statusX() { return 8; }
-		public int statusY() { return 100; }
-		public int invLabelY() { return 135; }
-		public int buttonX() { return 68; }
-		public int buttonY() { return 112; }
-		public int buttonWidth() { return 120; }
+		public int invY() { return 166; }
+		public int invLabelX() { return 8; }
+		public int invLabelY() { return 155; }
+		public int buttonX() { return 8; }
+		public int buttonY() { return 126; }
+		public int buttonWidth() { return 240; }
 		public int buttonHeight() { return 20; }
 	}
 
