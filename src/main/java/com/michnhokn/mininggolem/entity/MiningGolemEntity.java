@@ -365,6 +365,23 @@ public class MiningGolemEntity extends PathfinderMob {
 		return count;
 	}
 
+	/** Total blocks the golem can still break with the remaining durability in its tool slots. */
+	public int getMineableBlockCount() {
+		int total = 0;
+		for (int i = TOOL_START; i < TORCH_START; i++) {
+			ItemStack stack = inventory.getItem(i);
+			if (!stack.isEmpty() && stack.isDamageableItem()) {
+				total += Math.max(0, stack.getMaxDamage() - stack.getDamageValue());
+			}
+		}
+		return total;
+	}
+
+	/** Tunnel length in blocks the golem can still light with its torches (one per 10 columns). */
+	public int getTunnelLength() {
+		return getTorchCount() * TORCH_INTERVAL;
+	}
+
 	public boolean insertLoot(ItemStack stack) {
 		if (stack.isEmpty()) return true;
 		stack = stack.copy();

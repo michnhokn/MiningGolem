@@ -4,11 +4,10 @@ import com.michnhokn.mininggolem.MiningGolem;
 import com.michnhokn.mininggolem.client.network.ClientNetworking;
 import com.michnhokn.mininggolem.entity.MiningGolemEntity;
 import com.michnhokn.mininggolem.inventory.MiningGolemMenu;
-import com.michnhokn.mininggolem.network.RenameGolemPayload;
-import com.michnhokn.mininggolem.network.SetDirectionPayload;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.Direction;
@@ -19,7 +18,10 @@ import net.minecraft.world.entity.player.Inventory;
 public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> {
 	private static final Identifier TEXTURE = MiningGolem.id("textures/gui/mining_golem.png");
 	private static final int IMAGE_WIDTH = 256;
-	private static final int IMAGE_HEIGHT = 228;
+	private static final int IMAGE_HEIGHT = 234;
+
+	private static final Direction[] CARDINALS = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
+	private static final String[] DIRECTION_KEYS = {"north", "east", "south", "west"};
 
 	private Button toggleButton;
 	private EditBox nameBox;
@@ -34,22 +36,25 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 		super.init();
 		var layout = new MiningGolemMenu.MenuLayout();
 
-		nameBox = new EditBox(this.font, this.leftPos + 8, this.topPos + 96, 118, 16,
-				Component.translatable("mininggolem.gui.name_hint"));
+		nameBox = new EditBox(this.font, this.leftPos + layout.nameX(), this.topPos + layout.nameY(),
+				layout.nameWidth(), layout.nameHeight(), Component.translatable("mininggolem.gui.name_hint"));
 		nameBox.setMaxLength(32);
 		nameBox.setValue(this.title.getString());
 		nameBox.setHint(Component.translatable("mininggolem.gui.name_hint"));
+		nameBox.setTooltip(Tooltip.create(Component.translatable("mininggolem.gui.rename_hint")));
 		addRenderableWidget(nameBox);
 
-		Direction[] cardinals = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
 		for (int i = 0; i < 4; i++) {
-			Direction direction = cardinals[i];
+			Direction direction = CARDINALS[i];
 			final int ordinal = direction.ordinal();
-			directionButtons[i] = addRenderableWidget(Button.builder(
+			Button button = addRenderableWidget(Button.builder(
 					Component.literal(direction.name().substring(0, 1)),
-					button -> ClientNetworking.sendSetDirection(ordinal))
-					.bounds(this.leftPos + 134 + i * 29, this.topPos + 96, 28, 16)
+					b -> ClientNetworking.sendSetDirection(ordinal))
+					.bounds(this.leftPos + layout.dirX() + i * layout.dirStep(), this.topPos + layout.dirY(),
+							layout.dirButtonWidth(), layout.dirButtonHeight())
 					.build());
+			button.setTooltip(Tooltip.create(Component.translatable("mininggolem.gui.direction." + DIRECTION_KEYS[i])));
+			directionButtons[i] = button;
 		}
 
 		toggleButton = addRenderableWidget(Button.builder(
@@ -84,11 +89,25 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 		boolean mining = this.menu.getStatus() == MiningGolemEntity.GolemStatus.MINING;
 		toggleButton.setMessage(Component.translatable(mining ? "mininggolem.gui.stop" : "mininggolem.gui.start"));
 		// gray out the direction the golem is currently facing
-		Direction[] cardinals = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
 		int current = this.menu.getDirectionOrdinal();
 		for (int i = 0; i < 4; i++) {
-			directionButtons[i].active = cardinals[i].ordinal() != current;
+			directionButtons[i].active = CARDINALS[i].ordinal() != current;
 		}
+	}
+
+	// colors must be fully opaque ARGB — the 26.3 text renderer honors the alpha
+	// bits as-is (vanilla passes 0xFF404040 for container labels, see
+	// AbstractContainerScreen#extractLabels)
+	private static final int LABEL_COLOR = 0xFF404040;
+
+	private static int statusColor(MiningGolemEntity.GolemStatus status) {
+		return switch (status) {
+			case MINING -> 0xFF55FF55;
+			case PAUSED_TORCHES, PAUSED_PICKAXES, PAUSED_LIQUID -> 0xFFFFAA00;
+			case INVENTORY_FULL -> 0xFFFF5555;
+			case DONE -> 0xFF55FFFF;
+			case IDLE -> 0xFFA0A0A0;
+		};
 	}
 
 	@Override
@@ -99,14 +118,34 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		// the extractor's pose is already translated to the panel origin by
+		// AbstractContainerScreen.render — draw in panel-relative coordinates.
+		// shadow=false everywhere: vanilla container labels carry no drop shadow
+		// (the color/5-arg overload defaults the shadow on, which smudges on gray)
 		var layout = new MiningGolemMenu.MenuLayout();
-		graphics.text(this.font, this.title, this.leftPos + layout.statusX(), this.topPos + 6, 0x404040);
-		MiningGolemEntity.GolemStatus status = this.menu.getStatus();
-		graphics.text(this.font, Component.translatable(status.translationKey()),
-				this.leftPos + layout.statusX(), this.topPos + layout.statusY(), 0x306030);
+		graphics.text(this.font, this.title, layout.titleX(), layout.titleY(), LABEL_COLOR, false);
+
+		// status line lives in the header, right-aligned, color-coded with a state dot
+		var status = this.menu.getStatus();
+		var statusText = Component.translatable(status.translationKey());
+		int color = statusColor(status);
+		int statusX = layout.statusRight() - this.font.width(statusText);
+		graphics.text(this.font, statusText, statusX, layout.statusY(), color, false);
+		int dotX = statusX - 6;
+		int dotY = layout.statusY() + 3;
+		graphics.fill(dotX, dotY, dotX + 3, dotY + 3, color);
+
 		graphics.text(this.font, Component.translatable("mininggolem.gui.direction"),
-				this.leftPos + 134, this.topPos + 88, 0x404040);
+				layout.dirLabelX(), layout.dirLabelY(), LABEL_COLOR, false);
 		graphics.text(this.font, Component.translatable("container.inventory"),
-				this.leftPos + layout.invX(), this.topPos + layout.invLabelY(), 0x404040);
+				layout.invLabelX(), layout.invLabelY(), LABEL_COLOR, false);
+
+		// stats list, right of the player inventory
+		graphics.text(this.font, Component.translatable("mininggolem.gui.stats"),
+				layout.statsX(), layout.invLabelY(), LABEL_COLOR, false);
+		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.blocks", this.menu.getBlocksMineable()),
+				layout.statsX(), layout.invY(), LABEL_COLOR, false);
+		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.tunnel", this.menu.getTunnelLength()),
+				layout.statsX(), layout.invY() + 18, LABEL_COLOR, false);
 	}
 }

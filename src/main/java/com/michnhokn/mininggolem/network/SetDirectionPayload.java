@@ -31,6 +31,8 @@ public record SetDirectionPayload(int directionOrdinal) implements CustomPacketP
 				if (ordinal < 0 || ordinal >= values.length) return;
 				Direction direction = values[ordinal];
 				if (direction.getAxis().isVertical()) return;
+				// keep-current is a no-op: never wipe a plan for the same direction
+				if (direction == golem.getWorkDirection()) return;
 				// a new direction invalidates the current plan
 				if (golem.isJobActive()) {
 					golem.setJobActive(false);
