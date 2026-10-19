@@ -5,7 +5,9 @@ import zlib
 import random
 import os
 
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "main", "resources", "assets", "mininggolem")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+OUT_DIR = os.path.join(ROOT, "src", "main", "resources", "assets", "mininggolem")
+VANILLA_DIR = os.path.join(ROOT, "assets-src", "vanilla")
 
 
 def write_png(path, width, height, pixels):
@@ -32,6 +34,95 @@ def noise(base, amount=8):
     r, g, b = base
     d = random.randint(-amount, amount)
     return (max(0, min(255, r + d)), max(0, min(255, g + d)), max(0, min(255, b + d)), 255)
+
+
+def read_png(path):
+    """Minimal stdlib PNG decoder for 8-bit images (all color types)."""
+    with open(path, "rb") as f:
+        data = f.read()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n", path
+    idat = b""
+    palette, trns = [], b""
+    meta = None
+    pos = 8
+    while pos < len(data):
+        length = struct.unpack(">I", data[pos:pos + 4])[0]
+        tag = data[pos + 4:pos + 8]
+        chunk = data[pos + 8:pos + 8 + length]
+        if tag == b"IHDR":
+            meta = struct.unpack(">IIBBBBB", chunk)
+        elif tag == b"IDAT":
+            idat += chunk
+        elif tag == b"PLTE":
+            palette = [tuple(chunk[i:i + 3]) for i in range(0, len(chunk), 3)]
+        elif tag == b"tRNS":
+            trns = chunk
+        pos += 12 + length
+    w, h, depth, ctype, _comp, _filt, inter = meta
+    assert inter == 0, f"interlaced PNG unsupported: {path}"
+    assert depth == 8 or ctype == 3, f"unsupported PNG: {path}"
+    raw = zlib.decompress(idat)
+    if ctype == 3:
+        bytes_per = 1                      # palette indices, possibly packed sub-byte
+        stride = (w * depth + 7) // 8
+    else:
+        bytes_per = {0: 1, 2: 3, 4: 2, 6: 4}[ctype]
+        stride = w * bytes_per
+    out = bytearray()
+    prev = bytearray(stride)
+    p = 0
+    for _ in range(h):
+        filt = raw[p]
+        p += 1
+        line = bytearray(raw[p:p + stride])
+        p += stride
+        for x in range(stride):
+            a = line[x - bytes_per] if x >= bytes_per else 0
+            b = prev[x]
+            c = prev[x - bytes_per] if x >= bytes_per else 0
+            if filt == 1:
+                line[x] = (line[x] + a) & 255
+            elif filt == 2:
+                line[x] = (line[x] + b) & 255
+            elif filt == 3:
+                line[x] = (line[x] + (a + b) // 2) & 255
+            elif filt == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + c - 2 * b)
+                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                line[x] = (line[x] + pr) & 255
+        out += line
+        prev = line
+
+    def palette_index(line, x):
+        if depth == 8:
+            return line[x]
+        per_byte = 8 // depth
+        byte = line[x // per_byte]
+        shift = (per_byte - 1 - (x % per_byte)) * depth
+        return (byte >> shift) & ((1 << depth) - 1)
+
+    rows = []
+    for y in range(h):
+        line = out[y * stride:(y + 1) * stride]
+        row = []
+        for x in range(w):
+            if ctype == 6:
+                px = tuple(line[x * 4:x * 4 + 4])
+            elif ctype == 2:
+                px = tuple(line[x * 3:x * 3 + 3]) + (255,)
+            elif ctype == 0:
+                v = line[x]
+                px = (v, v, v, 255)
+            elif ctype == 4:
+                v, al = line[x * 2], line[x * 2 + 1]
+                px = (v, v, v, al)
+            else:
+                pi = palette_index(line, x)
+                al = trns[pi] if pi < len(trns) else 255
+                px = palette[pi] + (al,)
+            row.append(px)
+        rows.append(row)
+    return rows
 
 
 def gen_entity_texture():
@@ -118,56 +209,56 @@ def gen_gui_texture():
     for x, y in tool_slots + torch_slots + loot_slots + inv_slots + hotbar_slots:
         slot(x - 1, y - 1)
 
-    # placeholder icons in tool and torch columns (semi-transparent, only visible when empty)
-    ghost = 150
+    # ghost icons in tool and torch columns: greyed-out vanilla item art
+    # (real textures from the Minecraft client jar, checked into assets-src/vanilla)
+    GHOST_ALPHA = 0.8
 
-    def pickaxe_icon(ox, oy):
-        head = (168, 173, 159, ghost)
-        head_dark = (127, 132, 120, ghost)
-        handle = (136, 102, 62, ghost)
-        handle_dark = (96, 70, 42, ghost)
-        # head: shallow arc across the top
-        for x in range(3, 13):
-            px[oy + 2][ox + x] = head
-        for x in (2, 3, 12, 13):
-            px[oy + 3][ox + x] = head
-        for x in (1, 2, 13, 14):
-            px[oy + 4][ox + x] = head_dark
-        px[oy + 3][ox + 1] = head_dark
-        px[oy + 3][ox + 14] = head_dark
-        px[oy + 5][ox + 1] = head_dark
-        px[oy + 5][ox + 14] = head_dark
-        px[oy + 4][ox + 2] = head
-        px[oy + 4][ox + 13] = head
-        # handle: 2px diagonal band from bottom-left towards the head
-        for i in range(8):
-            px[oy + 12 - i][ox + 4 + i] = handle
-            px[oy + 13 - i][ox + 4 + i] = handle_dark
+    def grey_ghost(pixels):
+        # desaturate to luminance, stretch contrast around mid-grey so the
+        # silhouette clearly separates from the slot background in both directions
+        greyed = []
+        for row in pixels:
+            out_row = []
+            for r, g, b, a in row:
+                if a == 0:
+                    out_row.append((0, 0, 0, 0))
+                    continue
+                l = 0.30 * r + 0.59 * g + 0.11 * b
+                l = max(0, min(255, int((l - 150) * 1.6 + 150)))
+                out_row.append((l, l, l, a))
+            greyed.append(out_row)
+        return greyed
 
-    def torch_icon(ox, oy):
-        stick = (136, 102, 62, ghost)
-        stick_dark = (96, 70, 42, ghost)
-        flame = (255, 216, 0, ghost)
-        flame_dark = (255, 144, 0, ghost)
-        for y in range(6, 15):
-            px[oy + y][ox + 7] = stick
-            px[oy + y][ox + 8] = stick_dark
-        for x in range(6, 10):
-            px[oy + 5][ox + x] = flame_dark
-        for x in range(7, 9):
-            px[oy + 3][ox + x] = flame
-            px[oy + 4][ox + x] = flame
-        px[oy + 2][ox + 7] = flame
-        px[oy + 2][ox + 8] = flame_dark
+    def stamp_ghost(slot_px, ox, oy):
+        # pre-blend over the slot background so the icon renders identically everywhere
+        for j, row in enumerate(slot_px):
+            for i, (r, g, b, a) in enumerate(row):
+                if a == 0 or i > 15 or j > 15:
+                    continue
+                dst = px[oy + j][ox + i]
+                mixed = tuple(
+                    max(0, min(255, int(GHOST_ALPHA * c + (1 - GHOST_ALPHA) * d)))
+                    for c, d in zip((r, g, b), dst[:3])
+                )
+                px[oy + j][ox + i] = mixed + (255,)
 
-    for x, y in tool_slots:
-        pickaxe_icon(x, y)
+    pickaxe = grey_ghost(read_png(os.path.join(VANILLA_DIR, "diamond_pickaxe.png")))
+    shovel = grey_ghost(read_png(os.path.join(VANILLA_DIR, "diamond_shovel.png")))
+    torch_tex = grey_ghost(read_png(os.path.join(VANILLA_DIR, "torch.png")))
+
+    # slot 0 hints pickaxe, slot 1 hints shovel — both go in the tool column
+    stamp_ghost(pickaxe, *tool_slots[0])
+    stamp_ghost(shovel, *tool_slots[1])
     for x, y in torch_slots:
-        torch_icon(x, y)
+        stamp_ghost(torch_tex, x, y)
 
     write_png(os.path.join(OUT_DIR, "textures", "gui", "mining_golem.png"), w, h, px)
 
 
 if __name__ == "__main__":
-    gen_entity_texture()
-    gen_gui_texture()
+    import sys
+    what = sys.argv[1] if len(sys.argv) > 1 else "all"
+    if what in ("all", "entity"):
+        gen_entity_texture()
+    if what in ("all", "gui"):
+        gen_gui_texture()
