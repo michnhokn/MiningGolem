@@ -1,0 +1,213 @@
+# Publishes a release to Modrinth and syncs the project description.
+#
+#   * Pushing a tag `vX.Y.Z` builds the mod and uploads it as a new Modrinth
+#     version (https://docs.modrinth.com/api/operations/createversion/).
+#   * Every run also uploads `README.md` as the project's long description
+#     (https://docs.modrinth.com/api/operations/modifyproject/).
+#
+# One-time setup:
+#   1. Create/claim the project on Modrinth and set `MODRINTH_PROJECT` below
+#      to its ID or slug (https://modrinth.com/mod/<slug>).
+#   2. Create a token at https://modrinth.com/settings/pats with the
+#      `VERSION_CREATE` and `PROJECT_WRITE` scopes and add it as the repository
+#      secret `MODRINTH_TOKEN` (Settings → Secrets and variables → Actions).
+#
+# The tag must match the version in `gradle.properties`; Modrinth also rejects
+# duplicate version numbers, so a release can never be uploaded twice.
+
+name: Modrinth release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      sync_description_only:
+        description: 'Only sync README.md to the Modrinth description (no version upload)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modrinth-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # TODO: Modrinth project ID or slug (https://modrinth.com/mod/<slug>).
+  MODRINTH_PROJECT: ''
+  # Game versions this build supports (JSON array) — keep in sync with gradle.properties.
+  MODRINTH_GAME_VERSIONS: '["26.3"]'
+  # Mod loaders this build supports (JSON array).
+  MODRINTH_LOADERS: '["fabric"]'
+  # Release channel: release | beta | alpha.
+  MODRINTH_VERSION_TYPE: 'release'
+  # Side requirement: client_and_server | client_or_server | ... (see Modrinth docs).
+  MODRINTH_ENVIRONMENT: 'client_and_server'
+  # Modrinth project ID of Fabric API, a required dependency (https://modrinth.com/mod/fabric-api).
+  FABRIC_API_PROJECT_ID: 'P7dR8mSH'
+  # Modrinth asks API clients to identify themselves.
+  USER_AGENT: 'michnhokn/MiningGolem (github.com/michnhokn/MiningGolem)'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+    steps:
+      - name: Decide mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.sync_description_only }}" = "true" ]; then
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history and tags, needed for the changelog and tag check
+
+      - name: Read version from gradle.properties
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -E '^version[[:space:]]*=' gradle.properties | head -n1 | sed -E 's/^version[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not read 'version=' from gradle.properties."
+            exit 1
+          fi
+          echo "Releasing version $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check tag matches gradle.properties version
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$TAG_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version ${{ steps.version.outputs.version }} in gradle.properties. Fix the tag or the version and try again."
+            exit 1
+          fi
+
+      - name: Check Modrinth setup
+        run: |
+          set -euo pipefail
+          if [ -z "$MODRINTH_TOKEN" ]; then
+            echo "::error::Missing repository secret MODRINTH_TOKEN. Create a token at https://modrinth.com/settings/pats (scopes: VERSION_CREATE, PROJECT_WRITE) and add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          if [ -z "$MODRINTH_PROJECT" ]; then
+            echo "::error::Set MODRINTH_PROJECT at the top of this workflow to the project ID or slug of the Modrinth project (https://modrinth.com/mod/<slug>)."
+            exit 1
+          fi
+
+      - name: Resolve Modrinth project ID
+        run: |
+          set -euo pipefail
+          PROJECT_ID="$(curl -fsS \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: $USER_AGENT" \
+            "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT" | jq -er '.id // empty' || true)"
+          if [ -z "$PROJECT_ID" ]; then
+            echo "::error::Could not resolve Modrinth project '$MODRINTH_PROJECT'. Check MODRINTH_PROJECT and MODRINTH_TOKEN."
+            exit 1
+          fi
+          echo "PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 25
+        if: steps.mode.outputs.upload == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        if: steps.mode.outputs.upload == 'true'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        if: steps.mode.outputs.upload == 'true'
+        run: ./gradlew build
+
+      - name: Locate mod jar
+        if: steps.mode.outputs.upload == 'true'
+        id: jar
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' -print -quit)"
+          if [ -z "$JAR" ]; then
+            echo "::error::No mod jar found in build/libs."
+            exit 1
+          fi
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Build changelog from commits since the previous tag
+        if: steps.mode.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          PREV_TAG="$(git describe --tags --abbrev=0 'HEAD^' 2>/dev/null || true)"
+          if [ -n "$PREV_TAG" ]; then
+            git log --pretty=format:'- %s' "$PREV_TAG..HEAD" > changelog.md
+          else
+            git log --pretty=format:'- %s' HEAD > changelog.md
+          fi
+
+      - name: Create Modrinth version
+        if: steps.mode.outputs.upload == 'true'
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg project_id "$PROJECT_ID" \
+            --arg version "${{ steps.version.outputs.version }}" \
+            --rawfile changelog changelog.md \
+            --arg fabric_api "$FABRIC_API_PROJECT_ID" \
+            --arg environment "$MODRINTH_ENVIRONMENT" \
+            --arg version_type "$MODRINTH_VERSION_TYPE" \
+            --argjson game_versions "$MODRINTH_GAME_VERSIONS" \
+            --argjson loaders "$MODRINTH_LOADERS" \
+            '{
+              name: ("Mining Golem v" + $version),
+              version_number: $version,
+              changelog: $changelog,
+              dependencies: [ { project_id: $fabric_api, dependency_type: "required" } ],
+              game_versions: $game_versions,
+              loaders: $loaders,
+              version_type: $version_type,
+              environment: $environment,
+              featured: true,
+              project_id: $project_id,
+              file_parts: ["file0"],
+              primary_file: "file0"
+            }' > version-data.json
+
+          HTTP_CODE="$(curl -sS -o version-response.json -w '%{http_code}' -X POST "https://api.modrinth.com/v2/version" \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: $USER_AGENT" \
+            -F "data=<version-data.json;type=application/json" \
+            -F "file0=@${{ steps.jar.outputs.jar }}")"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Modrinth rejected the version upload (HTTP $HTTP_CODE):"
+            cat version-response.json
+            exit 1
+          fi
+
+          echo "Published Modrinth version ${{ steps.version.outputs.version }} (id $(jq -r '.id' version-response.json))"
+
+      - name: Sync README.md to the Modrinth project description
+        run: |
+          set -euo pipefail
+          jq -n --rawfile body README.md '{body: $body}' > project-body.json
+          HTTP_CODE="$(curl -sS -o project-response.txt -w '%{http_code}' -X PATCH "https://api.modrinth.com/v2/project/$PROJECT_ID" \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: $USER_AGENT" \
+            -H "Content-Type: application/json" \
+            --data @project-body.json)"
+          if [ "$HTTP_CODE" != "204" ]; then
+            echo "::error::Modrinth rejected the description update (HTTP $HTTP_CODE):"
+            cat project-response.txt
+            exit 1
+          fi
+          echo "Updated the Modrinth project description from README.md."
