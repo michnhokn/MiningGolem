@@ -15,6 +15,8 @@ public class MiningGolemMenu extends AbstractContainerMenu {
 	private final SimpleContainer clientContainer;
 	private int clientStatus;
 	private int clientDirection;
+	private int clientBlocksMineable;
+	private int clientTunnelLength;
 
 	public MiningGolemMenu(int containerId, Inventory playerInventory, MiningGolemEntity golem) {
 		super(MiningGolem.MINING_GOLEM_MENU, containerId);
@@ -62,6 +64,33 @@ public class MiningGolemMenu extends AbstractContainerMenu {
 				clientDirection = value;
 			}
 		});
+		// stats: DataSlots are transmitted as shorts, so clamp synced derived values
+		addDataSlot(new DataSlot() {
+			@Override
+			public int get() {
+				return golem != null ? clampShort(golem.getMineableBlockCount()) : clientBlocksMineable;
+			}
+
+			@Override
+			public void set(int value) {
+				clientBlocksMineable = value;
+			}
+		});
+		addDataSlot(new DataSlot() {
+			@Override
+			public int get() {
+				return golem != null ? clampShort(golem.getTunnelLength()) : clientTunnelLength;
+			}
+
+			@Override
+			public void set(int value) {
+				clientTunnelLength = value;
+			}
+		});
+	}
+
+	private static int clampShort(int value) {
+		return Math.clamp(value, 0, Short.MAX_VALUE);
 	}
 
 	public static MiningGolemMenu createClient(int containerId, Inventory playerInventory) {
@@ -83,6 +112,16 @@ public class MiningGolemMenu extends AbstractContainerMenu {
 	/** Ordinal of the golem's work direction (synced to the client). */
 	public int getDirectionOrdinal() {
 		return clientDirection;
+	}
+
+	/** Blocks the golem can still break with its remaining tool durability (synced). */
+	public int getBlocksMineable() {
+		return clientBlocksMineable;
+	}
+
+	/** Tunnel length in blocks the golem can still light with its torches (synced). */
+	public int getTunnelLength() {
+		return clientTunnelLength;
 	}
 
 	public static boolean isTorch(ItemStack stack) {
@@ -161,6 +200,8 @@ public class MiningGolemMenu extends AbstractContainerMenu {
 		public int invY() { return 153; }
 		public int invLabelX() { return 8; }
 		public int invLabelY() { return 142; }
+		// stats column, right of the player inventory
+		public int statsX() { return 174; }
 	}
 
 	private static class FilterSlot extends Slot {

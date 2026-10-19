@@ -130,5 +130,13 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 				this.leftPos + layout.dirLabelX(), this.topPos + layout.dirLabelY(), 0x404040);
 		graphics.text(this.font, Component.translatable("container.inventory"),
 				this.leftPos + layout.invLabelX(), this.topPos + layout.invLabelY(), 0x404040);
+
+		// stats list, right of the player inventory
+		graphics.text(this.font, Component.translatable("mininggolem.gui.stats"),
+				this.leftPos + layout.statsX(), this.topPos + layout.invLabelY(), 0x404040);
+		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.blocks", this.menu.getBlocksMineable()),
+				this.leftPos + layout.statsX(), this.topPos + layout.invY(), 0x404040);
+		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.tunnel", this.menu.getTunnelLength()),
+				this.leftPos + layout.statsX(), this.topPos + layout.invY() + 18, 0x404040);
 	}
 }

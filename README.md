@@ -49,6 +49,7 @@ with torches and bridging over holes, even while you are away.
 | Left column (4)     | **Tool slots** — pickaxes *and* shovels, with greyed-out vanilla item icons as hints |
 | Right column (4)    | **Torch slots** — torches (normal or soul)                                 |
 | Center 4×9 grid     | **Loot** — everything the golem mines lands here, never on the ground       |
+| Stats (right of your inventory) | **Blocks:** how many blocks the tools in its slots can still break (remaining durability, `0` when empty) · **Tunnel:** how far it can dig with its torches (one torch per 10 columns) |
 
 The name, dig-direction and start/stop controls sit above the golem's inventory;
 the background uses vanilla-style rounded corners.
