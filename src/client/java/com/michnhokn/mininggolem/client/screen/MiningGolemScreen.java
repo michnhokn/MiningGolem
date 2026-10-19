@@ -95,13 +95,18 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 		}
 	}
 
+	// colors must be fully opaque ARGB — the 26.3 text renderer honors the alpha
+	// bits as-is (vanilla passes 0xFF404040 for container labels, see
+	// AbstractContainerScreen#extractLabels)
+	private static final int LABEL_COLOR = 0xFF404040;
+
 	private static int statusColor(MiningGolemEntity.GolemStatus status) {
 		return switch (status) {
-			case MINING -> 0x55FF55;
-			case PAUSED_TORCHES, PAUSED_PICKAXES, PAUSED_LIQUID -> 0xFFAA00;
-			case INVENTORY_FULL -> 0xFF5555;
-			case DONE -> 0x55FFFF;
-			case IDLE -> 0xA0A0A0;
+			case MINING -> 0xFF55FF55;
+			case PAUSED_TORCHES, PAUSED_PICKAXES, PAUSED_LIQUID -> 0xFFFFAA00;
+			case INVENTORY_FULL -> 0xFFFF5555;
+			case DONE -> 0xFF55FFFF;
+			case IDLE -> 0xFFA0A0A0;
 		};
 	}
 
@@ -114,7 +119,7 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
 		var layout = new MiningGolemMenu.MenuLayout();
-		graphics.text(this.font, this.title, this.leftPos + layout.titleX(), this.topPos + layout.titleY(), 0x404040);
+		graphics.text(this.font, this.title, this.leftPos + layout.titleX(), this.topPos + layout.titleY(), LABEL_COLOR);
 
 		// status line lives in the header, right-aligned, color-coded with a state dot
 		var status = this.menu.getStatus();
@@ -127,16 +132,16 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 		graphics.fill(dotX, dotY, dotX + 3, dotY + 3, color);
 
 		graphics.text(this.font, Component.translatable("mininggolem.gui.direction"),
-				this.leftPos + layout.dirLabelX(), this.topPos + layout.dirLabelY(), 0x404040);
+				this.leftPos + layout.dirLabelX(), this.topPos + layout.dirLabelY(), LABEL_COLOR);
 		graphics.text(this.font, Component.translatable("container.inventory"),
-				this.leftPos + layout.invLabelX(), this.topPos + layout.invLabelY(), 0x404040);
+				this.leftPos + layout.invLabelX(), this.topPos + layout.invLabelY(), LABEL_COLOR);
 
 		// stats list, right of the player inventory
 		graphics.text(this.font, Component.translatable("mininggolem.gui.stats"),
-				this.leftPos + layout.statsX(), this.topPos + layout.invLabelY(), 0x404040);
+				this.leftPos + layout.statsX(), this.topPos + layout.invLabelY(), LABEL_COLOR);
 		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.blocks", this.menu.getBlocksMineable()),
-				this.leftPos + layout.statsX(), this.topPos + layout.invY(), 0x404040);
+				this.leftPos + layout.statsX(), this.topPos + layout.invY(), LABEL_COLOR);
 		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.tunnel", this.menu.getTunnelLength()),
-				this.leftPos + layout.statsX(), this.topPos + layout.invY() + 18, 0x404040);
+				this.leftPos + layout.statsX(), this.topPos + layout.invY() + 18, LABEL_COLOR);
 	}
 }
