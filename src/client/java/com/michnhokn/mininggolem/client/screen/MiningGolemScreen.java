@@ -118,30 +118,33 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		// the extractor's pose is already translated to the panel origin by
+		// AbstractContainerScreen.render — draw in panel-relative coordinates
+		// (vanilla does the same: text(font, title, titleLabelX, titleLabelY, ...))
 		var layout = new MiningGolemMenu.MenuLayout();
-		graphics.text(this.font, this.title, this.leftPos + layout.titleX(), this.topPos + layout.titleY(), LABEL_COLOR);
+		graphics.text(this.font, this.title, layout.titleX(), layout.titleY(), LABEL_COLOR);
 
 		// status line lives in the header, right-aligned, color-coded with a state dot
 		var status = this.menu.getStatus();
 		var statusText = Component.translatable(status.translationKey());
 		int color = statusColor(status);
-		int statusX = this.leftPos + layout.statusRight() - this.font.width(statusText);
-		graphics.text(this.font, statusText, statusX, this.topPos + layout.statusY(), color);
+		int statusX = layout.statusRight() - this.font.width(statusText);
+		graphics.text(this.font, statusText, statusX, layout.statusY(), color);
 		int dotX = statusX - 6;
-		int dotY = this.topPos + layout.statusY() + 3;
+		int dotY = layout.statusY() + 3;
 		graphics.fill(dotX, dotY, dotX + 3, dotY + 3, color);
 
 		graphics.text(this.font, Component.translatable("mininggolem.gui.direction"),
-				this.leftPos + layout.dirLabelX(), this.topPos + layout.dirLabelY(), LABEL_COLOR);
+				layout.dirLabelX(), layout.dirLabelY(), LABEL_COLOR);
 		graphics.text(this.font, Component.translatable("container.inventory"),
-				this.leftPos + layout.invLabelX(), this.topPos + layout.invLabelY(), LABEL_COLOR);
+				layout.invLabelX(), layout.invLabelY(), LABEL_COLOR);
 
 		// stats list, right of the player inventory
 		graphics.text(this.font, Component.translatable("mininggolem.gui.stats"),
-				this.leftPos + layout.statsX(), this.topPos + layout.invLabelY(), LABEL_COLOR);
+				layout.statsX(), layout.invLabelY(), LABEL_COLOR);
 		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.blocks", this.menu.getBlocksMineable()),
-				this.leftPos + layout.statsX(), this.topPos + layout.invY(), LABEL_COLOR);
+				layout.statsX(), layout.invY(), LABEL_COLOR);
 		graphics.text(this.font, Component.translatable("mininggolem.gui.stats.tunnel", this.menu.getTunnelLength()),
-				this.leftPos + layout.statsX(), this.topPos + layout.invY() + 18, LABEL_COLOR);
+				layout.statsX(), layout.invY() + 18, LABEL_COLOR);
 	}
 }
