@@ -42,13 +42,16 @@ with torches and bridging over holes, even while you are away.
 
 | Area                | What it is                                                                 |
 |---------------------|----------------------------------------------------------------------------|
-| Left column (4)     | **Tool slots** — pickaxes *and* shovels, with ghost icons as hints         |
-| Right column (4)    | **Torch slots** — torches (normal or soul)                                 |
-| Center 4×9 grid     | **Loot** — everything the golem mines lands here, never on the ground       |
 | Status (top right)  | Color-coded live status with a state dot: 🟢 Mining · ⚪ Idle · 🟠 Paused (out of torches/tools/liquid) · 🔴 Inventory full · 🔵 Done |
 | Name field          | Type a name and press **Enter** (tooltip reminds you). While typing, *no key* closes the GUI (Escape first stops typing, then closes). The name shows above the golem and in its chat messages. |
 | N / E / S / W       | **Dig direction** (current one is grayed out; hover for "Dig north/east/…"). Changing it stops a running job and clears the plan — press Start again to dig the new way. Clicking the current direction is always a no-op. |
-| Start / Stop        | Full-width button toggling the mining job; the label reflects the current state |
+| Start / Stop        | Sits beside the name field; toggles the mining job, the label reflects the current state |
+| Left column (4)     | **Tool slots** — pickaxes *and* shovels, with greyed-out vanilla item icons as hints |
+| Right column (4)    | **Torch slots** — torches (normal or soul)                                 |
+| Center 4×9 grid     | **Loot** — everything the golem mines lands here, never on the ground       |
+
+The name, dig-direction and start/stop controls sit above the golem's inventory;
+the background uses vanilla-style rounded corners.
 
 The GUI live-updates while the golem works — you can watch loot and tool durability change.
 

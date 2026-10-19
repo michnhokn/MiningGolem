@@ -156,15 +156,15 @@ SLOT_BG = (139, 139, 139, 255)
 SLOT_DARK = (55, 55, 55, 255)
 COPPER_LIGHT = (222, 163, 111, 255)
 COPPER_DARK = (137, 84, 51, 255)
-PANEL_HEIGHT = 246
+PANEL_HEIGHT = 234
 
 
 def gen_gui_texture():
-    # 256x256 canvas; panel occupies 256x246.
+    # 256x256 canvas; panel occupies 256x234.
     random.seed(7)
     w, h = 256, 256
     px = [[(0, 0, 0, 0) for _ in range(w)] for _ in range(h)]
-    H = PANEL_HEIGHT
+    W, H = 256, PANEL_HEIGHT
 
     def rect(x0, y0, x1, y1, color):
         for y in range(y0, y1):
@@ -172,24 +172,29 @@ def gen_gui_texture():
                 if 0 <= x < w and 0 <= y < h:
                     px[y][x] = color
 
-    # panel with vanilla-style border
-    rect(0, 0, 256, H, PANEL)
-    rect(0, 0, 256, 1, HIGHLIGHT)
-    rect(0, 0, 1, H, HIGHLIGHT)
-    rect(0, H - 1, 256, H, SHADOW)
-    rect(255, 0, 256, H, SHADOW)
-    rect(0, 0, 256, H, BORDER)
-    rect(1, 1, 255, H - 1, PANEL)
-    rect(1, 1, 255, 2, HIGHLIGHT)
-    rect(1, 1, 2, H - 1, HIGHLIGHT)
-    rect(1, H - 2, 255, H - 1, SHADOW)
-    rect(254, 1, 255, H - 1, SHADOW)
+    # vanilla-style panel: 1px black outline, 2px white highlight (top/left),
+    # 2px gray shadow (bottom/right), stepped rounded corners like the
+    # vanilla container backgrounds (measured from generic_54.png)
+    for y in range(H):
+        for x in range(W):
+            dx = min(x, W - 1 - x)
+            dy = min(y, H - 1 - y)
+            if dx + dy < 3:
+                continue  # transparent corner cut
+            if dx == 0 or dy == 0 or dx + dy == 3:
+                px[y][x] = BORDER
+            elif y in (1, 2) or x in (1, 2) or (x, y) == (3, 3):
+                px[y][x] = HIGHLIGHT
+            elif y in (H - 3, H - 2) or x in (W - 3, W - 2) or (x, y) == (W - 4, H - 4):
+                px[y][x] = SHADOW
+            else:
+                px[y][x] = PANEL
 
-    # copper accent trims separating header / controls / inventory
-    rect(2, 16, 254, 17, COPPER_LIGHT)
-    rect(2, 17, 254, 18, COPPER_DARK)
-    rect(2, 150, 254, 151, COPPER_LIGHT)
-    rect(2, 151, 254, 152, COPPER_DARK)
+    # copper accent trims separating header / controls / slots
+    rect(3, 16, 253, 17, COPPER_LIGHT)
+    rect(3, 17, 253, 18, COPPER_DARK)
+    rect(3, 63, 253, 64, COPPER_LIGHT)
+    rect(3, 64, 253, 65, COPPER_DARK)
 
     def slot(x, y):
         # 18x18 cell whose top-left is (slotX-1, slotY-1)
@@ -199,12 +204,12 @@ def gen_gui_texture():
             px[y + 17][x + i] = HIGHLIGHT
             px[y + i][x + 17] = HIGHLIGHT
 
-    # slot item origins
-    tool_slots = [(8, 20 + row * 18) for row in range(4)]
-    torch_slots = [(230, 20 + row * 18) for row in range(4)]
-    loot_slots = [(44 + col * 18, 20 + row * 18) for row in range(4) for col in range(9)]
-    inv_slots = [(9 + col * 18, 166 + row * 18) for row in range(3) for col in range(9)]
-    hotbar_slots = [(9 + col * 18, 224) for col in range(9)]
+    # slot item origins — golem inventory below the controls
+    tool_slots = [(8, 67 + row * 18) for row in range(4)]
+    torch_slots = [(230, 67 + row * 18) for row in range(4)]
+    loot_slots = [(44 + col * 18, 67 + row * 18) for row in range(4) for col in range(9)]
+    inv_slots = [(9 + col * 18, 153 + row * 18) for row in range(3) for col in range(9)]
+    hotbar_slots = [(9 + col * 18, 211) for col in range(9)]
 
     for x, y in tool_slots + torch_slots + loot_slots + inv_slots + hotbar_slots:
         slot(x - 1, y - 1)

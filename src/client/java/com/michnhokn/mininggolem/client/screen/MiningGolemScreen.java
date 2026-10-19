@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Inventory;
 public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> {
 	private static final Identifier TEXTURE = MiningGolem.id("textures/gui/mining_golem.png");
 	private static final int IMAGE_WIDTH = 256;
-	private static final int IMAGE_HEIGHT = 246;
+	private static final int IMAGE_HEIGHT = 234;
 
 	private static final Direction[] CARDINALS = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
 	private static final String[] DIRECTION_KEYS = {"north", "east", "south", "west"};
@@ -37,7 +37,7 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 		var layout = new MiningGolemMenu.MenuLayout();
 
 		nameBox = new EditBox(this.font, this.leftPos + layout.nameX(), this.topPos + layout.nameY(),
-				layout.nameWidth(), 16, Component.translatable("mininggolem.gui.name_hint"));
+				layout.nameWidth(), layout.nameHeight(), Component.translatable("mininggolem.gui.name_hint"));
 		nameBox.setMaxLength(32);
 		nameBox.setValue(this.title.getString());
 		nameBox.setHint(Component.translatable("mininggolem.gui.name_hint"));
@@ -127,7 +127,7 @@ public class MiningGolemScreen extends AbstractContainerScreen<MiningGolemMenu> 
 		graphics.fill(dotX, dotY, dotX + 3, dotY + 3, color);
 
 		graphics.text(this.font, Component.translatable("mininggolem.gui.direction"),
-				this.leftPos + layout.dirX(), this.topPos + layout.dirLabelY(), 0x404040);
+				this.leftPos + layout.dirLabelX(), this.topPos + layout.dirLabelY(), 0x404040);
 		graphics.text(this.font, Component.translatable("container.inventory"),
 				this.leftPos + layout.invLabelX(), this.topPos + layout.invLabelY(), 0x404040);
 	}
